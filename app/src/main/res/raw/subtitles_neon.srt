@@ -1,0 +1,15 @@
+1
+00:00:01,000 --> 00:00:04,000
+Neon Horizon - Cyberpunk Synthesized Stream
+
+2
+00:00:04,500 --> 00:00:08,000
+Try Picture-in-Picture mode & Rotation lock!
+
+3
+00:00:08,500 --> 00:00:12,000
+Drag along the red progress bar for smooth scrubbing
+
+4
+00:00:12,500 --> 00:00:14,800
+Continuous offline looping enabled

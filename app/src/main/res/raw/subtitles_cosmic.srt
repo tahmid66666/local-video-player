@@ -1,0 +1,15 @@
+1
+00:00:01,000 --> 00:00:04,500
+Welcome to Cosmic Odyssey - Offline Video Player
+
+2
+00:00:05,000 --> 00:00:09,000
+Slide left side for Brightness, right side for Volume
+
+3
+00:00:09,500 --> 00:00:13,500
+Double tap left/right to seek 10 seconds
+
+4
+00:00:14,000 --> 00:00:17,500
+Enjoy YouTube-like offline playback with zero internet
