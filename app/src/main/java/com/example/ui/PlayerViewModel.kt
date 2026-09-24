@@ -421,6 +421,28 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
+    private val _scanMessage = MutableStateFlow<String?>(null)
+    val scanMessage: StateFlow<String?> = _scanMessage.asStateFlow()
+
+    fun scanDeviceVideos() {
+        viewModelScope.launch {
+            _isScanning.value = true
+            val count = repository.scanDeviceVideos()
+            _isScanning.value = false
+            _scanMessage.value = if (count > 0) "Found $count local videos" else "No new local videos found"
+            if (_currentVideo.value == null && videos.value.isNotEmpty()) {
+                selectVideo(videos.value.first())
+            }
+        }
+    }
+
+    fun dismissScanMessage() {
+        _scanMessage.value = null
+    }
+
     fun toggleFavorite(id: String) {
         viewModelScope.launch {
             repository.toggleFavorite(id)

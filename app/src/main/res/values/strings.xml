@@ -1,3 +1,8 @@
 <resources>
-    <string name="app_name">Video Player</string>
+    <string name="app_name">Offline Video Player</string>
+    <string name="permission_title">Local Videos Access</string>
+    <string name="permission_desc">Allow access to device videos to play and manage your local media files.</string>
+    <string name="grant_permission">Grant Permission</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="scan_local_videos">Scan Videos</string>
 </resources>

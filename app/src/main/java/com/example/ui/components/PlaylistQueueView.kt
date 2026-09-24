@@ -1,6 +1,11 @@
 package com.example.ui.components
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -29,15 +34,19 @@ import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
@@ -46,11 +55,13 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,11 +71,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.VideoEntity
 import com.example.ui.PlayerViewModel
 import com.example.ui.RepeatMode
@@ -86,6 +100,37 @@ fun PlaylistQueueView(
     isShuffleEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
+    val scanMessage by viewModel.scanMessage.collectAsStateWithLifecycle()
+
+    val permissionToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_VIDEO
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+
+    var hasStoragePermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, permissionToRequest) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasStoragePermission = isGranted
+        if (isGranted) {
+            viewModel.scanDeviceVideos()
+        }
+    }
+
+    LaunchedEffect(hasStoragePermission) {
+        if (hasStoragePermission) {
+            viewModel.scanDeviceVideos()
+        }
+    }
+
     // Media picker for picking any local video from device storage
     val videoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -149,6 +194,45 @@ fun PlaylistQueueView(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Scan Device Videos Button
+                    Button(
+                        onClick = {
+                            if (hasStoragePermission) {
+                                viewModel.scanDeviceVideos()
+                            } else {
+                                permissionLauncher.launch(permissionToRequest)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isScanning) YouTubeBlue else Color(0x33FFFFFF),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier
+                            .height(36.dp)
+                            .testTag("scan_device_videos_button")
+                    ) {
+                        if (isScanning) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (isScanning) "Scanning…" else "Scan Device",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
                     // Import Video Button
                     Button(
                         onClick = { videoPickerLauncher.launch(arrayOf("video/*")) },
@@ -167,7 +251,7 @@ fun PlaylistQueueView(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Import Video", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Import", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
 
                     // Load Subtitles Button
@@ -188,7 +272,7 @@ fun PlaylistQueueView(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Load .SRT", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text(".SRT", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
 
                     // Favorite Button
@@ -217,6 +301,112 @@ fun PlaylistQueueView(
                 thickness = 1.dp,
                 modifier = Modifier.padding(vertical = 4.dp)
             )
+        }
+
+        // Permission Request Banner if permission not granted
+        if (!hasStoragePermission) {
+            item {
+                ElevatedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .testTag("storage_permission_card"),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = Color(0xFF1E2638)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FolderOpen,
+                                contentDescription = null,
+                                tint = YouTubeBlue,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Local Video Access Needed",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Grant storage permission to allow the player to discover, index, and play local videos stored on your device.",
+                            color = Color(0xFFCCCCCC),
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { permissionLauncher.launch(permissionToRequest) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = YouTubeBlue,
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.testTag("grant_permission_button")
+                            ) {
+                                Text("Allow Access", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                        data = Uri.fromParts("package", context.packageName, null)
+                                    }
+                                    context.startActivity(intent)
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.testTag("open_settings_button")
+                            ) {
+                                Text("Settings", fontSize = 13.sp, color = Color(0xFFAAAAAA))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Scan Status Banner
+        scanMessage?.let { msg ->
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .background(Color(0xFF263238), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = msg, color = Color(0xFF81D4FA), fontSize = 12.sp)
+                    IconButton(
+                        onClick = { viewModel.dismissScanMessage() },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Dismiss",
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
         }
 
         // Section Title: Playlist / Up Next
